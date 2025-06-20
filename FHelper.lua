@@ -1,4 +1,4 @@
-script_version("v1.03")
+script_version("v1.04")
 script_name("Family Helper")
 local name = "[Family Helper] "
 local color1 = "{B43DD9}" 
@@ -54,11 +54,11 @@ local settings = ini.load({
 }, 'FamHelper.ini')
 --ЛОКАЛ--
 local menu = new.char[10](u8(settings.main.menu))
-local faminv = new.char[10](u8(settings.main.faminv))
-local famuninvite = new.char[10](u8(settings.main.famuninvite))
-local fammute = new.char[10](u8(settings.main.fammute))
-local famunmute = new.char[10](u8(settings.main.famunmute))
-local fampoint = new.char[10](u8(settings.main.fampoint))
+local faminv1 = new.char[10](u8(settings.main.faminv))
+local famuninvite1 = new.char[10](u8(settings.main.famuninvite))
+local fammute1 = new.char[10](u8(settings.main.fammute))
+local famunmute1 = new.char[10](u8(settings.main.famunmute))
+local fampoint1 = new.char[10](u8(settings.main.fampoint))
 
 local add_nick = new.char[256]() -- поле для добавления нового ника
 
@@ -139,16 +139,39 @@ function main()
 	sampAddChatMessage(tag..u8:decode"Открыть меню скрипта /" ..settings.main.menu,-1)
     sampAddChatMessage(tag..u8:decode"Успешно загружен!",-1)
 	sampRegisterChatCommand(settings.main.menu, function() WinState[0] = not WinState[0] end)
-	
-	-- Загружаем черный список
+	 _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+    sampRegisterChatCommand(settings.main.faminv, faminv)
+    sampRegisterChatCommand(settings.main.fammute, fammute)
+    sampRegisterChatCommand(settings.main.famunmute, famunmute)
+    sampRegisterChatCommand(settings.main.famuninvite, famuninvite)
+    sampRegisterChatCommand(settings.main.fampoint, fampoint)
 	loadBlacklist()
-	
 	while not isSampAvailable() do
        wait(0)
     end
 	if not doesDirectoryExist(getWorkingDirectory()..'\\FamHelper') then
         createDirectory(getWorkingDirectory()..'\\FamHelper')
     end
+end
+
+function faminv(id)
+    sampSendChat("/faminvite " .. id)
+end
+
+function fammute(id)
+	sampSendChat("/fammute " .. id)
+end
+
+function famunmute(id)
+    sampSendChat("/famunmute " .. id)
+end
+
+function famuninvite(id)
+    sampSendChat("/famuninvite " .. id)
+end
+
+function fampoint()
+    sampSendChat("/fampoint")
 end
 --MIMGUI--
 imgui.OnFrame(function() return WinState[0] end, function(player)
@@ -163,22 +186,22 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
 		imgui.SetNextItemWidth(120)
 		if imgui.InputTextWithHint('Команда скрипта', '1', menu, 10) then end
 		imgui.SetNextItemWidth(120)
-		if imgui.InputTextWithHint('Команда для инвайта', '2', faminv, 10) then end
+		if imgui.InputTextWithHint('Команда для инвайта', '2', faminv1, 10) then end
 		imgui.SetNextItemWidth(120)
-		if imgui.InputTextWithHint('Команда для увольнения', '3', famuninvite, 10) then end
+		if imgui.InputTextWithHint('Команда для увольнения', '3', famuninvite1, 10) then end
 		imgui.SetNextItemWidth(120)
-		if imgui.InputTextWithHint('Команда для мута', '4', fammute, 10) then end
+		if imgui.InputTextWithHint('Команда для мута', '4', fammute1, 10) then end
 		imgui.SetNextItemWidth(120)
-		if imgui.InputTextWithHint('Команда для размута', '5', famunmute, 10) then end
+		if imgui.InputTextWithHint('Команда для размута', '5', famunmute1, 10) then end
 		imgui.SetNextItemWidth(120)
-		if imgui.InputTextWithHint('Чекпоинт для семьи', '6', fampoint, 10) then end
+		if imgui.InputTextWithHint('Чекпоинт для семьи', '6', fampoint1, 10) then end
 		if imgui.Button('Сохранить изменения', imgui.ImVec2(137, 30)) then
             settings.main.menu = (str(menu))
-			settings.main.faminv = (str(faminv))
-			settings.main.famuninvite = (str(famuninvite))
-			settings.main.fammute = (str(fammute))
-			settings.main.famunmute = (str(famunmute))
-			settings.main.fampoint = (str(fampoint))
+			settings.main.faminv = (str(faminv1))
+			settings.main.famuninvite = (str(famuninvite1))
+			settings.main.fammute = (str(fammute1))
+			settings.main.famunmute = (str(famunmute1))
+			settings.main.fampoint = (str(fampoint1))
             ini.save(settings, 'FamHelper.ini')
             thisScript():reload()
         end
