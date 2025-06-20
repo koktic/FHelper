@@ -1,4 +1,4 @@
-script_version("v1.02")
+script_version("v1.03")
 script_name("Family Helper")
 local name = "[Family Helper] "
 local color1 = "{B43DD9}" 
