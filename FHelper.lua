@@ -42,8 +42,11 @@ local ini = require 'inicfg'
 local settings = ini.load({
     main = {
 		menu = 'fhelp',
-        faminv = '',
-        unfaminv = '',
+        faminv = 'finv',
+		famuninvite = 'fui',
+        fammute = 'fm',
+		famunmute = 'fum',
+		fampoint = 'fp',
     },
 	blacklist = {
 		blacklist_nicks = '', -- строка с никами через запятую
@@ -51,8 +54,11 @@ local settings = ini.load({
 }, 'FamHelper.ini')
 --ЛОКАЛ--
 local menu = new.char[10](u8(settings.main.menu))
-local faminv = new.char[256](u8(settings.main.faminv))
-local unfaminv = new.char[256](u8(settings.main.unfaminv))
+local faminv = new.char[10](u8(settings.main.faminv))
+local famuninvite = new.char[10](u8(settings.main.famuninvite))
+local fammute = new.char[10](u8(settings.main.fammute))
+local famunmute = new.char[10](u8(settings.main.famunmute))
+local fampoint = new.char[10](u8(settings.main.fampoint))
 
 local add_nick = new.char[256]() -- поле для добавления нового ника
 
@@ -71,13 +77,11 @@ function loadBlacklist()
         end
     end
 end
-
 -- Сохраняем черный список в настройки
 function saveBlacklist()
     settings.blacklist.blacklist_nicks = table.concat(blacklist_nicks, ",")
     ini.save(settings, 'FamHelper.ini')
 end
-
 -- Добавляем ник в черный список
 function addToBlacklist(nick)
     if nick and nick ~= '' then
@@ -96,7 +100,6 @@ function addToBlacklist(nick)
     end
     return false
 end
-
 -- Удаляем ник из черного списка
 function removeFromBlacklist(nick)
     for i, existing_nick in ipairs(blacklist_nicks) do
@@ -108,7 +111,6 @@ function removeFromBlacklist(nick)
     end
     return false
 end
-
 --ПОИСК В ЧАТЕ--
 function ev.onServerMessage(color, text)
 	for _, nick in ipairs(blacklist_nicks) do
@@ -157,9 +159,26 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
 
     if imgui.BeginTabBar('Tabs') then -- задаём начало вкладок
     if imgui.BeginTabItem('Команды') then -- первая вкладка
-		if imgui.InputTextWithHint('Команда скрипта', '1', menu, 12) then end
-		if imgui.Button('Сохранить настройки', imgui.ImVec2(137, 30)) then
+		imgui.Text('Здесь можно ввести сокращения команд')
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда скрипта', '1', menu, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для инвайта', '2', faminv, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для увольнения', '3', famuninvite, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для мута', '4', fammute, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для размута', '5', famunmute, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Чекпоинт для семьи', '6', fampoint, 10) then end
+		if imgui.Button('Сохранить изменения', imgui.ImVec2(137, 30)) then
             settings.main.menu = (str(menu))
+			settings.main.faminv = (str(faminv))
+			settings.main.famuninvite = (str(famuninvite))
+			settings.main.fammute = (str(fammute))
+			settings.main.famunmute = (str(famunmute))
+			settings.main.fampoint = (str(fampoint))
             ini.save(settings, 'FamHelper.ini')
             thisScript():reload()
         end
@@ -177,9 +196,9 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
             local nick = str(add_nick)
             if addToBlacklist(nick) then
                 add_nick[0] = 0 -- очищаем поле
-                sampAddChatMessage(tag..u8:decode'Ник '..nick..' добавлен в черный список', -1)
+                sampAddChatMessage(string.format(tag..u8:decode'Ник %s добавлен в черный список', nick), -1)
             else
-                sampAddChatMessage(tag..u8:decode'Ник '..nick..' уже есть в черном списке или пустой', -1)
+                sampAddChatMessage(string.format(tag..u8:decode'Ник %s уже есть в черном списке или пустой', nick), -1)
             end
         end
         
@@ -196,7 +215,7 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
                 imgui.SetCursorPosX(imgui.GetCursorPosX() + 150)
                 if imgui.Button(fa.ICON_FA_MINUS .. '##remove_'..i, imgui.ImVec2(20, 20)) then
                     if removeFromBlacklist(nick) then
-                        sampAddChatMessage(tag..u8:decode'Ник '..nick..' удален из черного списка', -1)
+                        sampAddChatMessage(string.format(tag..u8:decode'Ник %s удален из черного списка', nick), -1)
                     end
                 end
             end
