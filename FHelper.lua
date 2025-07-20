@@ -1,4 +1,4 @@
-script_version("v1.05")
+script_version("v1.06")
 script_name("Family Helper")
 local name = "[Family Helper] "
 local color1 = "{B43DD9}" 
@@ -41,15 +41,15 @@ end
 local ini = require 'inicfg'
 local settings = ini.load({
     main = {
-	menu = 'fhelp',
+		menu = 'fhelp',
         faminv = 'finv',
-	famuninvite = 'fui',
+		famuninvite = 'fui',
         fammute = 'fm',
-	famunmute = 'fum',
-	fampoint = 'fp',
+		famunmute = 'fum',
+		fampoint = 'fp',
     },
 	blacklist = {
-	blacklist_nicks = '', -- строка с никами через запятую
+		blacklist_nicks = '', -- строка с никами через запятую
     },
 }, 'FamHelper.ini')
 --ЛОКАЛ--
@@ -121,53 +121,6 @@ function ev.onServerMessage(color, text)
 		end
 	end
 end
--- === UID BLACKLIST SYSTEM === --
-local uid_blacklist = {}
-local uid_config_path = 'BlackList.ini'
-local uid_settings = nil
-
-function loadUIDBlacklist()
-    if not doesFileExist(uid_config_path) then
-        local default = { blacklist = { uid = '' } }
-        ini.save(ini.load(default, uid_config_path), uid_config_path)
-    end
-    uid_settings = ini.load(nil, uid_config_path)
-    uid_blacklist = {}
-    local uids = tostring(uid_settings.blacklist.uid or '')
-    for uid in uids:gmatch('([^,]+)') do
-        uid = tonumber(uid:match('^%s*(.-)%s*$'))
-        if uid then
-            uid_blacklist[uid] = true
-        end
-    end
-end
-
-function saveUIDBlacklist()
-    local list = {}
-    for uid in pairs(uid_blacklist) do
-        table.insert(list, tostring(uid))
-    end
-    uid_settings.blacklist.uid = table.concat(list, ',')
-    ini.save(uid_settings, uid_config_path)
-end
-
-function addUIDToBlacklist(uid)
-    if not uid_blacklist[uid] then
-        uid_blacklist[uid] = true
-        saveUIDBlacklist()
-        return true
-    end
-    return false
-end
-
-function removeUIDFromBlacklist(uid)
-    if uid_blacklist[uid] then
-        uid_blacklist[uid] = nil
-        saveUIDBlacklist()
-        return true
-    end
-    return false
-end
 --МЕНЮШКА--
 imgui.OnInitialize(function()
     local config = imgui.ImFontConfig()
@@ -178,44 +131,6 @@ imgui.OnInitialize(function()
     icon = imgui.GetIO().Fonts:AddFontFromFileTTF('moonloader/MiniHelper/fAwesome5.ttf', 17.0, config, iconRanges) -- подгружаем иконки для верхнего (стандартного) шрифта.
 end)
 --MAIN--
-function inviteWithBlacklistCheck(id)
-    if not id or not tonumber(id) then
-        sampAddChatMessage(tag..u8:decode"Укажи ID игрока!", 0xFF0000)
-        return
-    end
-    id = tonumber(id)
-    -- Запрашиваем UID через /id
-    sampSendChat("/id " .. id)
-    lua_thread.create(function()
-        local found_uid = nil
-        local timeout = os.clock() + 5 -- 5 секунд на ожидание
-        while os.clock() < timeout do
-            wait(200)
-            for i = 0, 29 do -- ищем в 30 строках чата
-                local text = sampGetChatString(i)
-                -- Пример строки: "Имя: ... [ID: 123] ... UID: 456789"
-                if text and (text:find("ID:?%s*" .. id) or text:find("%["..id.."%]")) then
-                    local uid = text:match("UID:?%s*(%d+)")
-                    if uid then
-                        found_uid = tonumber(uid)
-                        break
-                    end
-                end
-            end
-            if found_uid then break end
-        end
-        if not found_uid then
-            sampAddChatMessage(tag..u8:decode"UID не найден в чате! Возможно, сервер не выдал /id или формат отличается.", 0xFF0000)
-            return
-        end
-        if uid_blacklist[found_uid] then
-            sampAddChatMessage(tag..u8:decode("UID "..found_uid.." в черном списке! Приглашение отменено."), 0xFF0000)
-            return
-        end
-        sampSendChat("/faminvite " .. id)
-    end)
-end
-
 function main()
     while not isSampAvailable() do wait(0) end
 	if autoupdate_loaded and enable_autoupdate and Update then
@@ -225,58 +140,12 @@ function main()
     sampAddChatMessage(tag..u8:decode"Успешно загружен!",-1)
 	sampRegisterChatCommand(settings.main.menu, function() WinState[0] = not WinState[0] end)
 	 _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
-    -- Заменяем регистрацию команды инвайта на функцию с проверкой ЧС
-    sampRegisterChatCommand(settings.main.faminv, function(param)
-        local id = tonumber(param)
-        if id then
-            inviteWithBlacklistCheck(id)
-        else
-            sampAddChatMessage(tag..u8:decode"Укажи ID!", 0xFF0000)
-        end
-    end)
+    sampRegisterChatCommand(settings.main.faminv, faminv)
     sampRegisterChatCommand(settings.main.fammute, fammute)
     sampRegisterChatCommand(settings.main.famunmute, famunmute)
     sampRegisterChatCommand(settings.main.famuninvite, famuninvite)
     sampRegisterChatCommand(settings.main.fampoint, fampoint)
 	loadBlacklist()
-    loadUIDBlacklist() -- <== Загрузка UID черного списка
-    -- Команды для UID черного списка
-    sampRegisterChatCommand('addbl', function(param)
-        local uid = tonumber(param and param:match('%d+'))
-        if uid then
-            if addUIDToBlacklist(uid) then
-                sampAddChatMessage(string.format(tag..u8:decode'UID %d добавлен в черный список', uid), 0x00FF00)
-            else
-                sampAddChatMessage(string.format(tag..u8:decode'UID %d уже в черном списке', uid), 0xFF0000)
-            end
-        else
-            sampAddChatMessage(tag..u8:decode'Использование: /addbl [UID]', 0xFF0000)
-        end
-    end)
-    sampRegisterChatCommand('removebl', function(param)
-        local uid = tonumber(param and param:match('%d+'))
-        if uid then
-            if removeUIDFromBlacklist(uid) then
-                sampAddChatMessage(string.format(tag..u8:decode'UID %d удален из черного списка', uid), 0x00FF00)
-            else
-                sampAddChatMessage(string.format(tag..u8:decode'UID %d не найден в черном списке', uid), 0xFF0000)
-            end
-        else
-            sampAddChatMessage(tag..u8:decode'Использование: /removebl [UID]', 0xFF0000)
-        end
-    end)
-    sampRegisterChatCommand('checkbl', function()
-        local count = 0
-        for _ in pairs(uid_blacklist) do count = count + 1 end
-        if count > 0 then
-            sampAddChatMessage(tag..u8:decode(string.format('Черный список (%d UID):', count)), 0xFFFF00)
-            for uid in pairs(uid_blacklist) do
-                sampAddChatMessage(tag..u8:decode(string.format('- %d', uid)), 0xFFFF00)
-            end
-        else
-            sampAddChatMessage(tag..u8:decode'Черный список пуст', 0xFFFF00)
-        end
-    end)
 	while not isSampAvailable() do
        wait(0)
     end
@@ -309,111 +178,76 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
     imgui.SetNextWindowPos(imgui.ImVec2(500, 500), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
     imgui.SetNextWindowSize(imgui.ImVec2(329, 409), imgui.Cond.Always)
     imgui.Begin('##Windows', WinState, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse)
-    imgui.SameLine()
+	imgui.SameLine()
 
     if imgui.BeginTabBar('Tabs') then -- задаём начало вкладок
-        if imgui.BeginTabItem('Команды') then -- первая вкладка
-            imgui.Text('Здесь можно ввести сокращения команд')
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('Команда скрипта', '1', menu, 10) then end
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('Команда для инвайта', '2', faminv1, 10) then end
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('Команда для увольнения', '3', famuninvite1, 10) then end
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('Команда для мута', '4', fammute1, 10) then end
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('Команда для размута', '5', famunmute1, 10) then end
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('Чекпоинт для семьи', '6', fampoint1, 10) then end
-            if imgui.Button('Сохранить изменения', imgui.ImVec2(137, 30)) then
-                settings.main.menu = (str(menu))
-                settings.main.faminv = (str(faminv1))
-                settings.main.famuninvite = (str(famuninvite1))
-                settings.main.fammute = (str(fammute1))
-                settings.main.famunmute = (str(famunmute1))
-                settings.main.fampoint = (str(fampoint1))
-                ini.save(settings, 'FamHelper.ini')
-                thisScript():reload()
-            end
-            imgui.EndTabItem() -- конец вкладки
+    if imgui.BeginTabItem('Команды') then -- первая вкладка
+		imgui.Text('Здесь можно ввести сокращения команд')
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда скрипта', '1', menu, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для инвайта', '2', faminv1, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для увольнения', '3', famuninvite1, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для мута', '4', fammute1, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для размута', '5', famunmute1, 10) then end
+		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Чекпоинт для семьи', '6', fampoint1, 10) then end
+		if imgui.Button('Сохранить изменения', imgui.ImVec2(137, 30)) then
+            settings.main.menu = (str(menu))
+			settings.main.faminv = (str(faminv1))
+			settings.main.famuninvite = (str(famuninvite1))
+			settings.main.fammute = (str(fammute1))
+			settings.main.famunmute = (str(famunmute1))
+			settings.main.fampoint = (str(fampoint1))
+            ini.save(settings, 'FamHelper.ini')
+            thisScript():reload()
         end
-        if imgui.BeginTabItem('АвтоМут (ники)') then -- вторая вкладка: автомута по никам
-            imgui.Text('Черный список ников')
-            imgui.Separator()
-            -- Поле ввода для добавления ника
-            imgui.SetNextItemWidth(200)
-            if imgui.InputTextWithHint('##add_nick', 'Введите ник', add_nick, 256) then end
-            imgui.SameLine()
-            if imgui.Button(fa.ICON_FA_PLUS .. ' Добавить', imgui.ImVec2(80, 20)) then
-                local nick = str(add_nick)
-                if addToBlacklist(nick) then
-                    add_nick[0] = 0 -- очищаем поле
-                    sampAddChatMessage(string.format(tag..u8:decode'Ник %s добавлен в черный список', nick), -1)
-                else
-                    sampAddChatMessage(string.format(tag..u8:decode'Ник %s уже есть в черном списке или пустой', nick), -1)
-                end
-            end
-            imgui.Separator()
-            imgui.Text('Список ников в черном списке:')
-            -- Отображаем список ников
-            if #blacklist_nicks == 0 then
-                imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), 'Список пуст')
-            else
-                for i, nick in ipairs(blacklist_nicks) do
-                    imgui.Text(nick)
-                    imgui.SameLine()
-                    imgui.SetCursorPosX(imgui.GetCursorPosX() + 150)
-                    if imgui.Button(fa.ICON_FA_MINUS .. '##remove_'..i, imgui.ImVec2(20, 20)) then
-                        if removeFromBlacklist(nick) then
-                            sampAddChatMessage(string.format(tag..u8:decode'Ник %s удален из черного списка', nick), -1)
-                        end
-                    end
-                end
-            end
-            imgui.EndTabItem() -- конец вкладки
-        end
-        if imgui.BeginTabItem('ЧС UID') then -- третья вкладка: UID blacklist
-            imgui.Text('Черный список UID')
-            imgui.Separator()
-            -- Поле для добавления UID
-            if not add_uid then add_uid = imgui.new.char[32]() end
-            imgui.SetNextItemWidth(120)
-            if imgui.InputTextWithHint('##add_uid', 'Введите UID', add_uid, 32) then end
-            imgui.SameLine()
-            if imgui.Button(fa.ICON_FA_PLUS .. ' Добавить UID', imgui.ImVec2(110, 20)) then
-                local uid = tonumber(str(add_uid))
-                if uid and addUIDToBlacklist(uid) then
-                    add_uid[0] = 0
-                    sampAddChatMessage(string.format(tag..u8:decode'UID %d добавлен в черный список', uid), 0x00FF00)
-                else
-                    sampAddChatMessage(tag..u8:decode'UID уже есть в черном списке или невалидный', 0xFF0000)
-                end
-            end
-            imgui.Separator()
-            imgui.Text('Список UID в черном списке:')
-            local count = 0
-            for _ in pairs(uid_blacklist) do count = count + 1 end
-            if count == 0 then
-                imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), 'Список пуст')
-            else
-                local i = 0
-                for uid in pairs(uid_blacklist) do
-                    i = i + 1
-                    imgui.Text(tostring(uid))
-                    imgui.SameLine()
-                    imgui.SetCursorPosX(imgui.GetCursorPosX() + 150)
-                    if imgui.Button(fa.ICON_FA_MINUS .. '##remove_uid_'..i, imgui.ImVec2(20, 20)) then
-                        if removeUIDFromBlacklist(uid) then
-                            sampAddChatMessage(string.format(tag..u8:decode'UID %d удален из черного списка', uid), 0x00FF00)
-                        end
-                    end
-                end
-            end
-            imgui.EndTabItem() -- конец вкладки
-        end
-        imgui.EndTabBar() -- конец всех вкладок
+        imgui.EndTabItem() -- конец вкладки
     end
+    if imgui.BeginTabItem('АвтоМут') then -- вторая вкладка
+        imgui.Text('Черный список ников')
+        imgui.Separator()
+        
+        -- Поле ввода для добавления ника
+        imgui.SetNextItemWidth(200)
+        if imgui.InputTextWithHint('##add_nick', 'Введите ник', add_nick, 256) then end
+        imgui.SameLine()
+        if imgui.Button(fa.ICON_FA_PLUS .. ' Добавить', imgui.ImVec2(80, 20)) then
+            local nick = str(add_nick)
+            if addToBlacklist(nick) then
+                add_nick[0] = 0 -- очищаем поле
+                sampAddChatMessage(string.format(tag..u8:decode'Ник %s добавлен в черный список', nick), -1)
+            else
+                sampAddChatMessage(string.format(tag..u8:decode'Ник %s уже есть в черном списке или пустой', nick), -1)
+            end
+        end
+        
+        imgui.Separator()
+        imgui.Text('Список ников в черном списке:')
+        
+        -- Отображаем список ников
+        if #blacklist_nicks == 0 then
+            imgui.TextColored(imgui.ImVec4(0.7, 0.7, 0.7, 1.0), 'Список пуст')
+        else
+            for i, nick in ipairs(blacklist_nicks) do
+                imgui.Text(nick)
+                imgui.SameLine()
+                imgui.SetCursorPosX(imgui.GetCursorPosX() + 150)
+                if imgui.Button(fa.ICON_FA_MINUS .. '##remove_'..i, imgui.ImVec2(20, 20)) then
+                    if removeFromBlacklist(nick) then
+                        sampAddChatMessage(string.format(tag..u8:decode'Ник %s удален из черного списка', nick), -1)
+                    end
+                end
+            end
+        end
+        
+        imgui.EndTabItem() -- конец вкладки
+    end
+    imgui.EndTabBar() -- конец всех вкладок
+end
 end)
 
 
