@@ -1,4 +1,4 @@
-script_version("v1.06")
+script_version("v1.07")
 script_name("Family Helper")
 local name = "[Family Helper] "
 local color1 = "{B43DD9}" 
@@ -47,6 +47,7 @@ local settings = ini.load({
         fammute = 'fm',
 		famunmute = 'fum',
 		fampoint = 'fp',
+		famtext = '/s Идёт набор в семью Cerberus. Скажите "фама" для вступления',
     },
 	blacklist = {
 		blacklist_nicks = '', -- строка с никами через запятую
@@ -59,6 +60,9 @@ local famuninvite1 = new.char[10](u8(settings.main.famuninvite))
 local fammute1 = new.char[10](u8(settings.main.fammute))
 local famunmute1 = new.char[10](u8(settings.main.famunmute))
 local fampoint1 = new.char[10](u8(settings.main.fampoint))
+local famtext1 = new.char[100](u8(settings.main.famtext))
+local famai = new.bool()
+local famtextThread = nil -- поток для отправки сообщений
 
 local add_nick = new.char[256]() -- поле для добавления нового ника
 
@@ -118,6 +122,19 @@ function ev.onServerMessage(color, text)
 			sampAddChatMessage(tag..u8:decode'[МУТ] Найден ник в семейном чате: '..nick, -1)
 			sampAddChatMessage('/fammute '..nick..' 180 Неадекват') 
 			break
+		end
+	end
+	if famai[0] and text:find(u8:decode'фама') then
+		-- Ищем ник и ID в формате NickName[ID]: в любом месте строки
+		local nick, id = text:match(u8:decode'(%w+_%w+)%[(%d+)%]')
+		if id then 
+			-- Получаем свой ID и ник, чтобы не реагировать на свои сообщения
+			local myId = select(2, sampGetPlayerIdByCharHandle(PLAYER_PED))
+			local myNick = sampGetPlayerNickname(myId)
+			-- Проверяем, что это не наше сообщение
+			if tonumber(id) ~= myId and nick ~= myNick then
+				sampSendChat(string.format(u8:decode'/faminvite %s', id))
+			end
 		end
 	end
 end
@@ -205,6 +222,29 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
             ini.save(settings, 'FamHelper.ini')
             thisScript():reload()
         end
+        imgui.EndTabItem() -- конец вкладки
+    end
+	if imgui.BeginTabItem('Автоинвайт') then -- первая вкладка
+		imgui.Text('Включи что бы кидать заготовленный текст')
+		if imgui.Checkbox('Информация о сдаче в аренду', famai) then
+			if famai[0] then
+				-- Запускаем поток отправки сообщений
+				if not famtextThread then
+					famtextThread = lua_thread.create(function()
+						while famai[0] do
+							sampSendChat(u8:decode(settings.main.famtext))
+							wait(301000) -- 301 секунда = 301000 миллисекунд
+						end
+					end)
+				end
+			else
+				-- Останавливаем поток
+				if famtextThread then
+					famtextThread:terminate()
+					famtextThread = nil
+				end
+			end
+		end		
         imgui.EndTabItem() -- конец вкладки
     end
     if imgui.BeginTabItem('АвтоМут') then -- вторая вкладка
