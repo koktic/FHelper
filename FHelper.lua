@@ -1,4 +1,4 @@
-script_version("v1.07")
+script_version("v1.08")
 script_name("Family Helper")
 local name = "[Family Helper] "
 local color1 = "{B43DD9}" 
@@ -47,6 +47,7 @@ local settings = ini.load({
         fammute = 'fm',
 		famunmute = 'fum',
 		fampoint = 'fp',
+		famrank = 'frank',
 		famtext = '/s Идёт набор в семью Cerberus. Скажите "фама" для вступления',
     },
 	blacklist = {
@@ -60,6 +61,7 @@ local famuninvite1 = new.char[10](u8(settings.main.famuninvite))
 local fammute1 = new.char[10](u8(settings.main.fammute))
 local famunmute1 = new.char[10](u8(settings.main.famunmute))
 local fampoint1 = new.char[10](u8(settings.main.fampoint))
+local famrank1 = new.char[10](u8(settings.main.famrank))
 local famtext1 = new.char[100](u8(settings.main.famtext))
 local famai = new.bool()
 local famtextThread = nil -- поток для отправки сообщений
@@ -115,7 +117,6 @@ function removeFromBlacklist(nick)
     end
     return false
 end
---ПОИСК В ЧАТЕ--
 function ev.onServerMessage(color, text)
 	for _, nick in ipairs(blacklist_nicks) do
 		if text:find(u8:decode'^{......}%[Семья%](.*) '..nick..'%[%d+%]:') then
@@ -125,13 +126,10 @@ function ev.onServerMessage(color, text)
 		end
 	end
 	if famai[0] and text:find(u8:decode'фама') then
-		-- Ищем ник и ID в формате NickName[ID]: в любом месте строки
 		local nick, id = text:match(u8:decode'(%w+_%w+)%[(%d+)%]')
 		if id then 
-			-- Получаем свой ID и ник, чтобы не реагировать на свои сообщения
 			local myId = select(2, sampGetPlayerIdByCharHandle(PLAYER_PED))
 			local myNick = sampGetPlayerNickname(myId)
-			-- Проверяем, что это не наше сообщение
 			if tonumber(id) ~= myId and nick ~= myNick then
 				sampSendChat(string.format(u8:decode'/faminvite %s', id))
 			end
@@ -161,6 +159,7 @@ function main()
     sampRegisterChatCommand(settings.main.fammute, fammute)
     sampRegisterChatCommand(settings.main.famunmute, famunmute)
     sampRegisterChatCommand(settings.main.famuninvite, famuninvite)
+	sampRegisterChatCommand(settings.main.famrank, famrank)
     sampRegisterChatCommand(settings.main.fampoint, fampoint)
 	loadBlacklist()
 	while not isSampAvailable() do
@@ -187,9 +186,55 @@ function famuninvite(id)
     sampSendChat("/famuninvite " .. id)
 end
 
+function famrank(params)
+    local id, rank = params:match("(%d+)%s+(%d+)")
+    if id == nil or rank == nil then
+        sampAddChatMessage(tag..(u8:decode" Использование: /"..settings.main.famrank.." [ID] [RANK]"), -1)
+        return
+    end
+	id = tonumber(id)
+    rank = tonumber(rank)
+    sampSendChat("/setfrank "..id.." "..rank)
+	if rank == 2 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf251:", id))
+        end)
+	elseif rank == 3 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf252:", id))
+        end)
+	elseif rank == 4 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf253:", id))
+        end)
+	elseif rank == 5 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf254:", id))
+        end)
+	elseif rank == 6 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf255:", id))
+        end)
+	elseif rank == 7 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf256:", id))
+        end)
+	elseif rank == 8 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf257:", id))
+        end)
+	elseif rank == 9 then
+        lua_thread.create(function()
+            sampSendChat(string.format("/famtag %d :uf258:", id))
+        end)
+    end
+end
+
+
 function fampoint()
     sampSendChat("/fampoint")
 end
+
 --MIMGUI--
 imgui.OnFrame(function() return WinState[0] end, function(player)
     imgui.SetNextWindowPos(imgui.ImVec2(500, 500), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
@@ -211,6 +256,8 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
 		imgui.SetNextItemWidth(120)
 		if imgui.InputTextWithHint('Команда для размута', '5', famunmute1, 10) then end
 		imgui.SetNextItemWidth(120)
+		if imgui.InputTextWithHint('Команда для выдачи ранга', '5', famrank1, 10) then end
+		imgui.SetNextItemWidth(120)
 		if imgui.InputTextWithHint('Чекпоинт для семьи', '6', fampoint1, 10) then end
 		if imgui.Button('Сохранить изменения', imgui.ImVec2(137, 30)) then
             settings.main.menu = (str(menu))
@@ -218,6 +265,7 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
 			settings.main.famuninvite = (str(famuninvite1))
 			settings.main.fammute = (str(fammute1))
 			settings.main.famunmute = (str(famunmute1))
+			settings.main.famrank = (str(famrank1))
 			settings.main.fampoint = (str(fampoint1))
             ini.save(settings, 'FamHelper.ini')
             thisScript():reload()
@@ -226,7 +274,7 @@ imgui.OnFrame(function() return WinState[0] end, function(player)
     end
 	if imgui.BeginTabItem('Автоинвайт') then -- первая вкладка
 		imgui.Text('Включи что бы кидать заготовленный текст')
-		if imgui.Checkbox('Информация о сдаче в аренду', famai) then
+		if imgui.Checkbox('Флудилка + автоинв', famai) then
 			if famai[0] then
 				-- Запускаем поток отправки сообщений
 				if not famtextThread then
