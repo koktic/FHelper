@@ -1,4 +1,4 @@
-script_version("v1.08")
+script_version("v1.09")
 script_name("Family Helper")
 local name = "[Family Helper] "
 local color1 = "{B43DD9}" 
@@ -121,7 +121,7 @@ function ev.onServerMessage(color, text)
 	for _, nick in ipairs(blacklist_nicks) do
 		if text:find(u8:decode'^{......}%[Семья%](.*) '..nick..'%[%d+%]:') then
 			sampAddChatMessage(tag..u8:decode'[МУТ] Найден ник в семейном чате: '..nick, -1)
-			sampAddChatMessage('/fammute '..nick..' 180 Неадекват') 
+			sampSendChat('/fammute '..nick..' 180 Неадекват') 
 			break
 		end
 	end
